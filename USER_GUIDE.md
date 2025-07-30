@@ -169,11 +169,26 @@ The system creates 8 different types of analytics, each with dedicated SQL files
 
 **Business Impact:** Use this to allocate more capital to your best-performing pairs
 
-**Example query:**
+**Example queries:**
 ```sql
+-- Top 10 performing pairs
 SELECT entity_name, profit_pct, win_rate, trade_count 
 FROM performance_rankings 
+WHERE ranking_type = 'by_pair'
 ORDER BY profit_pct DESC LIMIT 10;
+
+-- Performance distribution analysis
+SELECT 
+    CASE 
+        WHEN profit_pct >= 2.0 THEN 'Excellent (≥2%)'
+        WHEN profit_pct >= 1.0 THEN 'Good (1-2%)'
+        WHEN profit_pct >= 0.0 THEN 'Break-even (0-1%)'
+        ELSE 'Losing (<0%)'
+    END as performance_category,
+    COUNT(*) as pair_count
+FROM performance_rankings 
+WHERE ranking_type = 'by_pair'
+GROUP BY performance_category;
 ```
 
 ### 2. Risk Metrics (`risk_metrics` table)
@@ -187,6 +202,29 @@ ORDER BY profit_pct DESC LIMIT 10;
 
 **Business Impact:** Prevents catastrophic losses by monitoring risk levels
 
+**Example queries:**
+```sql
+-- Overall portfolio risk summary
+SELECT 
+    stop_loss_triggered_count,
+    stop_loss_effectiveness_pct,
+    max_drawdown_pct,
+    sharpe_ratio
+FROM risk_metrics 
+WHERE metric_type = 'overall';
+
+-- High-risk pairs needing attention
+SELECT 
+    entity_name as trading_pair,
+    max_drawdown_pct as worst_loss,
+    volatility_pct,
+    stop_loss_effectiveness_pct
+FROM risk_metrics 
+WHERE metric_type = 'by_pair'
+  AND (max_drawdown_pct < -10 OR volatility_pct > 5)
+ORDER BY max_drawdown_pct ASC;
+```
+
 ### 3. Strategy Performance (`strategy_performance` table)
 **SQL File:** `sql/strategy_performance.sql`  
 **What it shows:** Which strategies work best
@@ -199,11 +237,29 @@ ORDER BY profit_pct DESC LIMIT 10;
 
 **Business Impact:** Optimize your bot by prioritizing winning strategies
 
-**Example query:**
+**Example queries:**
 ```sql
-SELECT strategy_name, win_rate, avg_profit_pct, total_trades 
+-- Risk-adjusted strategy ranking
+SELECT 
+    strategy_name,
+    avg_profit_pct,
+    sharpe_ratio,
+    sortino_ratio,
+    calmar_ratio,
+    max_consecutive_losses
 FROM strategy_performance 
-ORDER BY avg_profit_pct DESC;
+WHERE total_trades >= 10
+ORDER BY sharpe_ratio DESC;
+
+-- Strategy efficiency analysis
+SELECT 
+    strategy_name,
+    avg_profit_pct,
+    avg_trade_duration_minutes / 60.0 as avg_hours,
+    (avg_profit_pct / (avg_trade_duration_minutes / 60.0)) as profit_per_hour
+FROM strategy_performance 
+WHERE avg_trade_duration_minutes > 0
+ORDER BY profit_per_hour DESC;
 ```
 
 ### 4. Timing Analysis (`timing_analysis` table)
@@ -218,6 +274,34 @@ ORDER BY avg_profit_pct DESC;
 
 **Business Impact:** Trade during profitable hours, avoid poor time periods
 
+**Example queries:**
+```sql
+-- Best trading hours
+SELECT 
+    hour_of_day,
+    time_period_name,
+    trade_count,
+    ROUND(win_rate * 100, 1) as win_rate_pct,
+    ROUND(avg_profit_pct, 2) as avg_profit_pct
+FROM timing_analysis 
+WHERE time_category = 'hourly'
+ORDER BY avg_profit_pct DESC;
+
+-- Market session analysis
+SELECT 
+    CASE 
+        WHEN hour_of_day IN (13,14,15,16,17,18,19,20) THEN 'US Market Hours'
+        WHEN hour_of_day IN (8,9,10,11,12,13,14,15) THEN 'EU Market Hours'
+        WHEN hour_of_day IN (0,1,2,3,4,5,6,7) THEN 'Asia Market Hours'
+        ELSE 'Off Market Hours'
+    END as market_session,
+    ROUND(AVG(avg_profit_pct), 2) as session_avg_profit
+FROM timing_analysis 
+WHERE time_category = 'hourly'
+GROUP BY market_session
+ORDER BY session_avg_profit DESC;
+```
+
 ### 5. Pair Analytics (`pair_analytics` table)
 **SQL File:** `sql/pair_analytics.sql`  
 **What it shows:** Detailed analysis of individual currency pairs
@@ -230,6 +314,32 @@ ORDER BY avg_profit_pct DESC;
 
 **Business Impact:** Tailor your trading approach to each pair's unique behavior
 
+**Example queries:**
+```sql
+-- Most consistent pairs (low volatility, good performance)
+SELECT 
+    pair,
+    ROUND(avg_profit_pct, 2) as avg_profit_pct,
+    ROUND(price_volatility_pct, 2) as price_volatility_pct,
+    ROUND(win_rate * 100, 1) as win_rate_pct,
+    ROUND(sharpe_ratio, 3) as sharpe_ratio
+FROM pair_analytics 
+WHERE total_trades >= 5 AND avg_profit_pct > 0
+ORDER BY sharpe_ratio DESC, price_volatility_pct ASC;
+
+-- Base currency performance analysis
+SELECT 
+    base_currency,
+    COUNT(*) as pair_count,
+    ROUND(AVG(avg_profit_pct), 2) as avg_profit,
+    ROUND(AVG(win_rate * 100), 1) as avg_win_rate,
+    ROUND(SUM(total_profit_abs), 2) as total_profit
+FROM pair_analytics 
+GROUP BY base_currency
+HAVING pair_count >= 2
+ORDER BY avg_profit DESC;
+```
+
 ### 6. Stop Loss Analytics (`stop_loss_analytics` table)
 **SQL File:** `sql/stop_loss_analytics.sql`  
 **What it shows:** How effective your stop-losses are
@@ -241,6 +351,41 @@ ORDER BY avg_profit_pct DESC;
 - Loss prevention analysis
 
 **Business Impact:** Fine-tune risk management by optimizing stop-loss levels
+
+**Example queries:**
+```sql
+-- Stop-loss effectiveness by pair
+SELECT 
+    pair,
+    ROUND(sl_trigger_rate_pct, 1) as sl_trigger_rate_pct,
+    ROUND(sl_effectiveness_pct, 1) as sl_effectiveness_pct,
+    ROUND(avg_sl_level_pct, 1) as avg_sl_level_pct,
+    ROUND(optimal_sl_level_pct, 1) as optimal_sl_level_pct,
+    CASE 
+        WHEN sl_effectiveness_pct < 50 THEN 'Needs Improvement'
+        WHEN sl_trigger_rate_pct > 30 THEN 'Too Aggressive'
+        WHEN sl_trigger_rate_pct < 5 THEN 'Too Loose'
+        ELSE 'Acceptable'
+    END as assessment
+FROM stop_loss_analytics 
+WHERE analysis_type = 'by_pair'
+ORDER BY sl_effectiveness_pct ASC;
+
+-- Stop-loss level optimization
+SELECT 
+    CASE 
+        WHEN stop_loss_level_pct <= -10 THEN 'Very Tight (≤-10%)'
+        WHEN stop_loss_level_pct <= -5 THEN 'Tight (-5% to -10%)'
+        WHEN stop_loss_level_pct <= -2 THEN 'Moderate (-2% to -5%)'
+        ELSE 'Loose (>-2%)'
+    END as sl_level_category,
+    ROUND(AVG(sl_effectiveness_pct), 1) as avg_effectiveness,
+    ROUND(AVG(sl_trigger_rate_pct), 1) as avg_trigger_rate
+FROM stop_loss_analytics 
+WHERE analysis_type = 'by_pair'
+GROUP BY sl_level_category
+ORDER BY avg_effectiveness DESC;
+```
 
 ### 7. Duration Patterns (`duration_patterns` table)
 **SQL File:** `sql/duration_patterns.sql`  
@@ -259,6 +404,32 @@ ORDER BY avg_profit_pct DESC;
 
 **Business Impact:** Maximize profit efficiency by identifying optimal trade duration ranges
 
+**Example queries:**
+```sql
+-- Duration category efficiency
+SELECT 
+    duration_category,
+    trade_count,
+    ROUND(avg_profit_pct, 2) as avg_profit_pct,
+    ROUND(profit_per_hour, 4) as profit_per_hour,
+    ROUND(optimal_exit_timing_minutes / 60.0, 1) as avg_duration_hours
+FROM duration_patterns 
+WHERE pattern_type = 'duration_based'
+ORDER BY profit_per_hour DESC;
+
+-- Optimal duration by pair
+SELECT 
+    pair,
+    duration_category,
+    ROUND(profit_per_hour, 4) as profit_per_hour,
+    ROUND(win_rate * 100, 1) as win_rate_pct,
+    ROUND(optimal_exit_timing_minutes / 60.0, 1) as optimal_hours
+FROM duration_patterns 
+WHERE pattern_type = 'by_pair'
+  AND trade_count >= 3
+ORDER BY pair, profit_per_hour DESC;
+```
+
 ### 8. Bot Health Metrics (`bot_health_metrics` table)
 **SQL File:** `sql/bot_health_metrics.sql`  
 **What it shows:** Comprehensive system health monitoring with automated alerts
@@ -275,6 +446,35 @@ ORDER BY avg_profit_pct DESC;
 - **CRITICAL**: Below warning thresholds
 
 **Business Impact:** Provides early warning system for performance issues
+
+**Example queries:**
+```sql
+-- Overall health dashboard
+SELECT 
+    metric_name,
+    ROUND(metric_value, 2) as metric_value,
+    metric_unit,
+    health_status,
+    CASE 
+        WHEN health_status = 'CRITICAL' THEN 'Immediate Action Required'
+        WHEN health_status = 'WARNING' THEN 'Monitoring Recommended'
+        ELSE 'No Action Needed'
+    END as priority_level
+FROM bot_health_metrics 
+ORDER BY 
+    CASE health_status 
+        WHEN 'CRITICAL' THEN 1 
+        WHEN 'WARNING' THEN 2 
+        WHEN 'HEALTHY' THEN 3 
+    END;
+
+-- Health score calculation
+SELECT 
+    ROUND(COUNT(CASE WHEN health_status = 'HEALTHY' THEN 1 END) * 100.0 / COUNT(*), 1) as health_score_pct,
+    COUNT(CASE WHEN health_status = 'CRITICAL' THEN 1 END) as critical_alerts,
+    COUNT(CASE WHEN health_status = 'WARNING' THEN 1 END) as warning_alerts
+FROM bot_health_metrics;
+```
 
 ## 🔧 Using SQL Analytics Files
 
