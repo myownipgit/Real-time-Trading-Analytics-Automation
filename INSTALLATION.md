@@ -4,8 +4,11 @@
 
 - Python 3.8 or higher
 - SQLite3
-- Access to your trading bot's database (`~/db_dev/trading_test.db`)
+- **Freqtrade trading bot** with completed trades
+- Access to your Freqtrade database (`~/workspace/freqtrade_bot/user_data/tradesv3.sqlite`)
 - Unix-like operating system (Linux/macOS)
+
+> **Note**: This system is designed specifically for [Freqtrade](https://github.com/freqtrade/freqtrade) cryptocurrency trading bots. See [FREQTRADE_INTEGRATION.md](FREQTRADE_INTEGRATION.md) for detailed integration information.
 
 ## Quick Installation
 
@@ -31,18 +34,30 @@ pip install -r requirements.txt
 
 ### 4. Configure Database Path
 
-The system expects your trading database at `~/db_dev/trading_test.db`. If your database is located elsewhere, update the path in `trading_analytics_automation_final.py`:
+The system expects your Freqtrade database at `~/workspace/freqtrade_bot/user_data/tradesv3.sqlite`. If your Freqtrade database is located elsewhere, update the path in `trading_analytics_automation_final.py`:
 
 ```python
-analytics_db_path = os.path.expanduser('~/db_dev/trading_test.db')
+# Find your Freqtrade database first
+find ~ -name "tradesv3.sqlite" 2>/dev/null
+
+# Update line 28 in trading_analytics_automation_final.py:
+analytics_db_path = os.path.expanduser('~/workspace/freqtrade_bot/user_data/tradesv3.sqlite')
 ```
 
-### 5. Verify Database Schema
+### 5. Verify Freqtrade Database Schema
 
-Ensure your database has the required tables:
+Ensure your Freqtrade database has the required tables and trades:
 
 ```bash
-sqlite3 ~/db_dev/trading_test.db ".tables"
+# Check database exists
+ls -la ~/workspace/freqtrade_bot/user_data/tradesv3.sqlite
+
+# Check tables exist
+sqlite3 ~/workspace/freqtrade_bot/user_data/tradesv3.sqlite ".tables"
+
+# Count completed trades (should be > 0)
+sqlite3 ~/workspace/freqtrade_bot/user_data/tradesv3.sqlite \
+  "SELECT COUNT(*) FROM trades WHERE is_open = 0"
 ```
 
 Required tables:
