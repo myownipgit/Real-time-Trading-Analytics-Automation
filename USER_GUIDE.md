@@ -156,15 +156,18 @@ Watch what the system is doing in real-time.
 
 ## Understanding Your Analytics
 
-The system creates 8 different types of analytics. Here's what each one tells you:
+The system creates 8 different types of analytics, each with dedicated SQL files for advanced analysis. Here's what each one tells you:
 
 ### 1. Performance Rankings (`performance_rankings` table)
+**SQL File:** `sql/performance_rankings.sql`  
 **What it shows:** Which trading pairs make you the most money
 
 **Key insights:**
 - Which pairs have the highest win rates
 - Which pairs generate the most profit
 - How much volume you're trading per pair
+
+**Business Impact:** Use this to allocate more capital to your best-performing pairs
 
 **Example query:**
 ```sql
@@ -174,20 +177,27 @@ ORDER BY profit_pct DESC LIMIT 10;
 ```
 
 ### 2. Risk Metrics (`risk_metrics` table)
+**SQL File:** `sql/risk_metrics.sql`  
 **What it shows:** How well your risk management is working
 
 **Key insights:**
 - How often your stop-losses trigger
 - Whether stop-losses are saving you money
-- Your maximum drawdown
+- Your maximum drawdown and Value at Risk (VaR)
+
+**Business Impact:** Prevents catastrophic losses by monitoring risk levels
 
 ### 3. Strategy Performance (`strategy_performance` table)
+**SQL File:** `sql/strategy_performance.sql`  
 **What it shows:** Which strategies work best
 
 **Key insights:**
 - Win rate by strategy
 - Profit factor (how much you make vs lose)
-- Which strategies are most consistent
+- Sharpe ratios and risk-adjusted returns
+- Consecutive win/loss streaks
+
+**Business Impact:** Optimize your bot by prioritizing winning strategies
 
 **Example query:**
 ```sql
@@ -197,45 +207,117 @@ ORDER BY avg_profit_pct DESC;
 ```
 
 ### 4. Timing Analysis (`timing_analysis` table)
+**SQL File:** `sql/timing_analysis.sql`  
 **What it shows:** When you should trade for best results
 
 **Key insights:**
 - Best hours of the day to trade
 - Weekend vs weekday performance
+- Market session analysis (US, EU, Asia)
 - Optimal trade duration
 
+**Business Impact:** Trade during profitable hours, avoid poor time periods
+
 ### 5. Pair Analytics (`pair_analytics` table)
-**What it shows:** Detailed stats for each currency pair
+**SQL File:** `sql/pair_analytics.sql`  
+**What it shows:** Detailed analysis of individual currency pairs
 
 **Key insights:**
-- Individual pair performance
-- Volatility by pair
-- Average trade duration per pair
+- Individual pair performance and characteristics
+- Volatility patterns per pair
+- Base/quote currency analysis
+- Efficiency ratios and optimal duration per pair
+
+**Business Impact:** Tailor your trading approach to each pair's unique behavior
 
 ### 6. Stop Loss Analytics (`stop_loss_analytics` table)
+**SQL File:** `sql/stop_loss_analytics.sql`  
 **What it shows:** How effective your stop-losses are
 
 **Key insights:**
-- Stop-loss trigger rates by pair
-- Whether your stop-loss levels are optimal
-- Average losses when stop-losses trigger
+- Stop-loss trigger rates by pair and strategy
+- Effectiveness percentages
+- Optimal stop-loss levels
+- Loss prevention analysis
+
+**Business Impact:** Fine-tune risk management by optimizing stop-loss levels
 
 ### 7. Duration Patterns (`duration_patterns` table)
-**What it shows:** How trade duration affects profitability
+**SQL File:** `sql/duration_patterns.sql`  
+**What it shows:** How trade duration affects profitability and efficiency
 
-**Categories:**
+**Key insights:**
+- Profit-per-hour efficiency by duration category
+- Optimal exit timing strategies
+- Duration preferences by pair and strategy
+
+**Duration Categories:**
 - **Scalp**: ≤60 minutes
 - **Short-term**: ≤480 minutes (8 hours)
 - **Day trade**: ≤1440 minutes (24 hours)
 - **Swing trade**: >1440 minutes
 
-### 8. Bot Health Metrics (`bot_health_metrics` table)
-**What it shows:** Overall system health
+**Business Impact:** Maximize profit efficiency by identifying optimal trade duration ranges
 
-**Health Status:**
-- **HEALTHY**: Win rate ≥70% AND average profit ≥0.5%
-- **WARNING**: Win rate ≥50% AND average profit ≥0%
+### 8. Bot Health Metrics (`bot_health_metrics` table)
+**SQL File:** `sql/bot_health_metrics.sql`  
+**What it shows:** Comprehensive system health monitoring with automated alerts
+
+**Key insights:**
+- Overall performance health scores
+- Portfolio diversification metrics
+- Trading activity consistency
+- Early warning alerts for performance degradation
+
+**Health Status Thresholds:**
+- **HEALTHY**: Win rate ≥60% AND average profit ≥0.5%
+- **WARNING**: Win rate ≥40% AND average profit ≥0%
 - **CRITICAL**: Below warning thresholds
+
+**Business Impact:** Provides early warning system for performance issues
+
+## 🔧 Using SQL Analytics Files
+
+Each analytics category includes comprehensive SQL files with:
+
+### What's in Each SQL File:
+- **Table creation** with proper indexing
+- **Data population** queries for automation
+- **Analysis examples** for manual exploration
+- **Query templates** for custom analysis
+- **Maintenance scripts** for data quality
+
+### Manual SQL Analysis:
+```bash
+# Run specific analytics category
+sqlite3 ~/db_dev/trading_test.db < sql/performance_rankings.sql
+
+# Execute custom queries from SQL files
+sqlite3 ~/db_dev/trading_test.db < sql/timing_analysis.sql
+
+# Run all analytics manually (usually automated)
+for sql_file in sql/*.sql; do
+    echo "Processing $sql_file..."
+    sqlite3 ~/db_dev/trading_test.db < "$sql_file"
+done
+```
+
+### Advanced Analytics Examples:
+```bash
+# Find optimal trading hours
+sqlite3 ~/db_dev/trading_test.db "
+SELECT time_period_name, avg_profit_pct, trade_count
+FROM timing_analysis 
+WHERE time_category = 'hourly'
+ORDER BY avg_profit_pct DESC"
+
+# Analyze stop-loss effectiveness
+sqlite3 ~/db_dev/trading_test.db "
+SELECT pair, sl_effectiveness_pct, sl_trigger_rate_pct
+FROM stop_loss_analytics 
+WHERE analysis_type = 'by_pair'
+ORDER BY sl_effectiveness_pct DESC"
+```
 
 ---
 

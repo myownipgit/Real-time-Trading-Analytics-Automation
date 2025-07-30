@@ -6,7 +6,7 @@ This system provides **automated real-time analytics** for your [Freqtrade](http
 
 **🤖 Freqtrade Integration**: Monitors your Freqtrade database (`~/workspace/freqtrade_bot/user_data/tradesv3.sqlite`) and generates insights from your trading bot's performance in real-time.
 
-📖 **[Full Freqtrade Integration Guide](FREQTRADE_INTEGRATION.md)** | 📋 **[Complete User Guide](USER_GUIDE.md)**
+📖 **[Complete User Guide](USER_GUIDE.md)** | 🔗 **[Freqtrade Integration Guide](FREQTRADE_INTEGRATION.md)** | 📊 **[SQL Analytics Guide](SQL_ANALYTICS_GUIDE.md)**
 
 ## 🚀 Quick Start
 
@@ -27,47 +27,91 @@ This system provides **automated real-time analytics** for your [Freqtrade](http
 
 ## 📊 Analytics Categories
 
-The system automatically updates these 8 analytics categories when new trades complete:
+The system automatically updates these 8 analytics categories when new trades complete, each with dedicated SQL files in the `/sql/` directory:
 
 ### 1. Performance Rankings
-- **Table**: `performance_rankings`
-- **Purpose**: Ranks trading pairs by profitability
-- **Key Metrics**: Win rate, profit percentage, trade count, profit ratios
+- **Table**: `performance_rankings` | **SQL**: `sql/performance_rankings.sql`
+- **Purpose**: Ranks trading pairs by profitability to identify top performers
+- **Key Metrics**: Win rate, profit percentage, trade count, profit ratios, volume analysis
+- **Business Value**: Identifies which trading pairs generate the most profit and should receive more capital allocation
+- **Example Insights**: "HYPER/USDT has 100% win rate with 3.04% average profit - allocate more funds"
 
 ### 2. Risk Metrics
-- **Table**: `risk_metrics`
-- **Purpose**: Tracks risk management effectiveness
-- **Key Metrics**: Stop-loss triggers, effectiveness percentages, drawdown
+- **Table**: `risk_metrics` | **SQL**: `sql/risk_metrics.sql`
+- **Purpose**: Tracks risk management effectiveness and portfolio safety
+- **Key Metrics**: Stop-loss triggers, effectiveness percentages, drawdown, Value at Risk (VaR)
+- **Business Value**: Prevents catastrophic losses by monitoring risk levels and stop-loss performance
+- **Example Insights**: "Stop-loss effectiveness is 85% - risk management working well"
 
 ### 3. Strategy Performance
-- **Table**: `strategy_performance`
-- **Purpose**: Compares different trading strategies
-- **Key Metrics**: Win rates, profit factors, expectancy, consistency scores
+- **Table**: `strategy_performance` | **SQL**: `sql/strategy_performance.sql`
+- **Purpose**: Compares different trading strategies to optimize bot configuration
+- **Key Metrics**: Win rates, profit factors, expectancy, Sharpe ratios, consecutive streaks
+- **Business Value**: Determines which strategies work best and should be prioritized or disabled
+- **Example Insights**: "SampleStrategy outperforms with 93.94% win rate - increase allocation"
 
 ### 4. Timing Analysis
-- **Table**: `timing_analysis`
-- **Purpose**: Identifies optimal trading times
-- **Key Metrics**: Best/worst performance hours, weekend vs weekday performance
+- **Table**: `timing_analysis` | **SQL**: `sql/timing_analysis.sql`
+- **Purpose**: Identifies optimal trading times and market session performance
+- **Key Metrics**: Hourly performance, weekend vs weekday, market session analysis, best/worst hours
+- **Business Value**: Optimizes trading schedules to trade during profitable hours and avoid poor periods
+- **Example Insights**: "Best performance at 14:00-16:00 UTC, worst at 02:00-04:00 UTC"
 
 ### 5. Pair Analytics
-- **Table**: `pair_analytics`
-- **Purpose**: Individual currency pair performance analysis
-- **Key Metrics**: Trade counts, win rates, volatility scores, duration patterns
+- **Table**: `pair_analytics` | **SQL**: `sql/pair_analytics.sql`
+- **Purpose**: Deep-dive analysis of individual currency pair behavior and characteristics
+- **Key Metrics**: Volatility patterns, duration preferences, base/quote currency analysis, efficiency ratios
+- **Business Value**: Tailors trading approach per pair based on their unique characteristics
+- **Example Insights**: "BTC pairs prefer short-term trades, ETH pairs perform better in swing trades"
 
 ### 6. Stop Loss Analytics
-- **Table**: `stop_loss_analytics`
-- **Purpose**: Stop-loss effectiveness by pair and strategy
-- **Key Metrics**: Trigger rates, effectiveness percentages, optimal levels
+- **Table**: `stop_loss_analytics` | **SQL**: `sql/stop_loss_analytics.sql`
+- **Purpose**: Optimizes stop-loss levels and analyzes protection effectiveness
+- **Key Metrics**: Trigger rates, effectiveness percentages, optimal levels, loss prevention analysis
+- **Business Value**: Fine-tunes risk management by optimizing stop-loss levels per pair/strategy
+- **Example Insights**: "Current -5% stop-loss too tight for HYPER/USDT, optimal level is -3%"
 
 ### 7. Duration Patterns
-- **Table**: `duration_patterns`
-- **Purpose**: Trade duration optimization
-- **Key Metrics**: Scalp/short-term/day-trade/swing-trade performance
+- **Table**: `duration_patterns` | **SQL**: `sql/duration_patterns.sql`
+- **Purpose**: Analyzes trade duration patterns to optimize exit timing strategies
+- **Key Metrics**: Scalp/short-term/day-trade/swing-trade performance, profit-per-hour efficiency
+- **Business Value**: Maximizes profit efficiency by identifying optimal trade duration ranges
+- **Example Insights**: "Short-term trades (1-8h) generate 2.3x more profit per hour than swing trades"
 
 ### 8. Bot Health Metrics
-- **Table**: `bot_health_metrics`
-- **Purpose**: Overall system health monitoring
-- **Key Metrics**: Health status (HEALTHY/WARNING/CRITICAL), key performance indicators
+- **Table**: `bot_health_metrics` | **SQL**: `sql/bot_health_metrics.sql`
+- **Purpose**: Comprehensive system health monitoring with automated alerts
+- **Key Metrics**: Health status (HEALTHY/WARNING/CRITICAL), performance thresholds, diversification metrics
+- **Business Value**: Provides early warning system for performance degradation and system issues
+- **Example Insights**: "Win rate dropped to 45% - WARNING status triggered, review strategy performance"
+
+## 🔧 SQL Analytics System
+
+Each analytics category includes:
+
+- **Complete table schemas** with proper indexing for performance
+- **Data population queries** compatible with `~/db_dev/trading_test.db`
+- **Analysis examples** and query templates
+- **Maintenance scripts** for data quality and cleanup
+- **Direct trades table queries** for real-time analysis
+
+### SQL File Usage
+```bash
+# Execute specific analytics category
+sqlite3 ~/db_dev/trading_test.db < sql/performance_rankings.sql
+
+# Run all analytics (executed automatically by system)
+for sql_file in sql/*.sql; do
+    sqlite3 ~/db_dev/trading_test.db < "$sql_file"
+done
+```
+
+### Analytics Data Flow
+1. **Freqtrade** completes trades → `tradesv3.sqlite`
+2. **Analytics System** detects new trades → processes updates
+3. **SQL Scripts** populate analytics tables → generates insights
+4. **Health Monitoring** evaluates metrics → triggers alerts
+5. **User Queries** access insights → inform trading decisions
 
 ## 🏥 Health Status System
 
